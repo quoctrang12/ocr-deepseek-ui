@@ -155,3 +155,13 @@ body {
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Katex Math Overflow Fix */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.5rem;
+}
+.katex {
+  color: #00e1ff; /* Neon blue for math formulas to match theme */
+}
+

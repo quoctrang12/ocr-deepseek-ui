@@ -1,60 +1,39 @@
-export interface GradeResponse {
-  recognized_text: string;
-  step_by_step_analysis: string[];
-  final_score: number;
-  feedback: string;
-}
+import axios from 'axios';
 
-export interface ApiResponse {
+export interface OcrResponse {
   success: boolean;
-  data: GradeResponse;
+  filename: string;
+  raw_result: string;
+  markdown_result: string;
 }
 
 /**
- * Gọi API để chấm điểm bài toán
+ * Gọi API để nhận dạng bài toán
  * @param file File hình ảnh bài tập
- * @returns Promise<ApiResponse>
+ * @returns Promise<OcrResponse>
  */
-export const gradeMathImage = async (file: File): Promise<ApiResponse> => {
-  // --- CODE THỰC TẾ (Đã comment lại để chạy demo) ---
-  /*
+export const gradeMathImage = async (file: File): Promise<OcrResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('prompt', '<image>\n<|grounding|>Convert the document to markdown.');
+
   try {
-    const formData = new FormData();
-    formData.append('image', file);
+    const response = await axios.post<OcrResponse>(
+      'https://scarlatinoid-quarrelsomely-beulah.ngrok-free.dev/api/v1/ocr',
+      formData,
+      {
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'multipart/form-data',
+          'ngrok-skip-browser-warning': 'true',
+          'Bypass-Tunnel-Reminder': 'true',
+        },
+      }
+    );
     
-    const response = await fetch('/api/v1/grade-math', {
-      method: 'POST',
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data: ApiResponse = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
-    console.error("Error calling grade API:", error);
+    console.error("Error calling OCR API:", error);
     throw error;
   }
-  */
-
-  // --- CODE MOCK (Dùng để demo UI) ---
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        data: {
-          recognized_text: "Giải phương trình: 2x + 5 = 15",
-          step_by_step_analysis: [
-            "Bước 1: Chuyển 5 sang vế phải: 2x = 15 - 5 (Đúng)",
-            "Bước 2: Tính toán vế phải: 2x = 10 (Đúng)",
-            "Bước 3: Chia cả hai vế cho 2: x = 10 / 2 = 4 (Sai bước tính toán cuối)"
-          ],
-          final_score: 7.5,
-          feedback: "Em đã làm đúng các bước biến đổi phương trình nhưng tính toán bước cuối cùng chưa chính xác. 10 chia 2 bằng 5 nhé."
-        }
-      });
-    }, 2500); // Giả lập delay 2.5s của model AI
-  });
 };
