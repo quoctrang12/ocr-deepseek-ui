@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+/* --- FUTURISTIC UI CUSTOM CSS --- */
+
+/* 1. Theme & Animated Gradient Mesh Background */
+@keyframes meshAnimation {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a0b2e, #001f4d);
+  background-size: 400% 400%;
+  animation: meshAnimation 15s ease infinite;
+  color: #ffffff;
+  min-height: 100vh;
+}
+
+/* 2. Glassmorphism */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.25rem;
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px -10px rgba(0, 225, 255, 0.3), 0 0 20px rgba(255, 0, 128, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-panel {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+}
+
+/* 3. Buttons & Hover Effects */
+.btn-neon {
+  background: linear-gradient(45deg, #ff007a, #7a00ff, #00e1ff);
+  background-size: 200% auto;
+  color: #ffffff !important;
+  border: none;
+  border-radius: 50px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-neon:hover:not(:disabled) {
+  background-position: right center;
+  transform: translateY(-3px);
+  box-shadow: 0 0 20px rgba(122, 0, 255, 0.6), 0 0 40px rgba(0, 225, 255, 0.4);
+}
+
+.btn-neon:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* 4. Gradient Text */
+.text-gradient {
+  background: linear-gradient(to right, #00f2fe, #4facfe, #f093fb, #f5576c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+}
+
+.text-gradient-score {
+  background: linear-gradient(135deg, #00ff87 0%, #60efff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Upload Area Customization */
+.upload-area {
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 1rem;
+}
+
+.upload-area.dragging {
+  border-color: #00e1ff;
+  background: rgba(0, 225, 255, 0.1);
+  box-shadow: 0 0 20px rgba(0, 225, 255, 0.2) inset;
+}
+
+.upload-area:hover:not(.has-file) {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Override Bootstrap defaults for dark theme */
+.text-muted {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.list-group-item {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.alert-info {
+  background: rgba(0, 225, 255, 0.1);
+  border: 1px solid rgba(0, 225, 255, 0.2);
+  color: #e0f7fa;
+}
+.alert-danger {
+  background: rgba(255, 0, 128, 0.1);
+  border: 1px solid rgba(255, 0, 128, 0.2);
+  color: #ffd6e8;
+}
+
+/* Utilities */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.border-start-lg {
+  border-left: 1px solid rgba(255,255,255,0.1);
+}
+@media (max-width: 991.98px) {
+  .border-start-lg {
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 1.5rem;
+  }
+}
+.border-start-xl {
+  border-left: 1px solid rgba(255,255,255,0.1);
+}
+@media (max-width: 1199.98px) {
+  .border-start-xl {
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 1.5rem;
+  }
+}
+.layout-transition {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
