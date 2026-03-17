@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
-/* --- FUTURISTIC UI CUSTOM CSS --- */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
 
-/* 1. Theme & Animated Gradient Mesh Background */
+/* --- FUTURISTIC UI CUSTOM CSS --- */
 @keyframes meshAnimation {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -19,7 +22,6 @@ body {
   min-height: 100vh;
 }
 
-/* 2. Glassmorphism */
 .glass-card {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(16px);
@@ -42,7 +44,6 @@ body {
   padding: 1rem;
 }
 
-/* 3. Buttons & Hover Effects */
 .btn-neon {
   background: linear-gradient(45deg, #ff007a, #7a00ff, #00e1ff);
   background-size: 200% auto;
@@ -69,7 +70,6 @@ body {
   cursor: not-allowed;
 }
 
-/* 4. Gradient Text */
 .text-gradient {
   background: linear-gradient(to right, #00f2fe, #4facfe, #f093fb, #f5576c);
   -webkit-background-clip: text;
@@ -87,12 +87,11 @@ body {
   color: transparent;
 }
 
-/* Upload Area Customization */
 .upload-area {
   border: 2px dashed rgba(255, 255, 255, 0.2);
   transition: all 0.3s ease;
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 1rem;
+  border-radius: 1.5rem;
 }
 
 .upload-area.dragging {
@@ -106,55 +105,6 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Override Bootstrap defaults for dark theme */
-.text-muted {
-  color: rgba(255, 255, 255, 0.6) !important;
-}
-.list-group-item {
-  background: transparent;
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.1);
-}
-.alert-info {
-  background: rgba(0, 225, 255, 0.1);
-  border: 1px solid rgba(0, 225, 255, 0.2);
-  color: #e0f7fa;
-}
-.alert-danger {
-  background: rgba(255, 0, 128, 0.1);
-  border: 1px solid rgba(255, 0, 128, 0.2);
-  color: #ffd6e8;
-}
-
-/* Utilities */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.border-start-lg {
-  border-left: 1px solid rgba(255,255,255,0.1);
-}
-@media (max-width: 991.98px) {
-  .border-start-lg {
-    border-left: none;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    margin-top: 1.5rem;
-  }
-}
-.border-start-xl {
-  border-left: 1px solid rgba(255,255,255,0.1);
-}
-@media (max-width: 1199.98px) {
-  .border-start-xl {
-    border-left: none;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    margin-top: 1.5rem;
-  }
-}
-.layout-transition {
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* Katex Math Overflow Fix */
 .katex-display {
   overflow-x: auto;
@@ -164,4 +114,21 @@ body {
 .katex {
   color: #00e1ff; /* Neon blue for math formulas to match theme */
 }
+
+/* Custom Scrollbar for code blocks */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.4);
+}
+
 
