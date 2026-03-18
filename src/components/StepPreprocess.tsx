@@ -5,11 +5,14 @@ import ImageModal from './ImageModal';
 
 interface StepPreprocessProps {
   originalImage: string;
+  processedImage?: string | null;
   isSkipped?: boolean;
 }
 
-export default function StepPreprocess({ originalImage, isSkipped }: StepPreprocessProps) {
+export default function StepPreprocess({ originalImage, processedImage, isSkipped }: StepPreprocessProps) {
   const [modalImage, setModalImage] = useState<string | null>(null);
+  
+  const displayProcessedImage = processedImage || originalImage;
 
   const handleDownload = (e: React.MouseEvent, url: string, filename: string) => {
     e.stopPropagation();
@@ -87,7 +90,7 @@ export default function StepPreprocess({ originalImage, isSkipped }: StepPreproc
 
             <div className="hidden md:flex justify-center absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none">
               <div className="w-12 h-12 glass-panel rounded-full flex items-center justify-center text-cyan-400">
-                <ArrowRight size={24} />
+                <FastForward size={24} />
               </div>
             </div>
 
@@ -95,19 +98,19 @@ export default function StepPreprocess({ originalImage, isSkipped }: StepPreproc
               <h3 className="text-lg font-semibold text-cyan-400 text-center">Ảnh đã làm sạch nền & Auto-Crop</h3>
               <div 
                 className="relative aspect-[4/3] rounded-2xl overflow-hidden glass-panel border border-cyan-500/30 cursor-zoom-in group"
-                onClick={() => setModalImage(originalImage)}
+                onClick={() => setModalImage(displayProcessedImage)}
               >
                 <button
-                  onClick={(e) => handleDownload(e, originalImage, 'preprocessed_image.png')}
+                  onClick={(e) => handleDownload(e, displayProcessedImage, 'preprocessed_image.png')}
                   className="absolute top-3 right-3 p-2 glass-panel rounded-full text-white/70 hover:text-cyan-400 hover:bg-white/20 transition-colors z-20 opacity-0 group-hover:opacity-100"
                   title="Tải ảnh xuống"
                 >
                   <Download size={18} />
                 </button>
                 <img 
-                  src={originalImage} 
+                  src={displayProcessedImage} 
                   alt="Processed" 
-                  className="w-full h-full object-contain filter contrast-125 brightness-110 saturate-0 transition-transform duration-500 group-hover:scale-105"
+                  className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-cyan-500/5 mix-blend-overlay"></div>
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">

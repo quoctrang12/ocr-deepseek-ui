@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calculator, Loader2, ChevronLeft, ChevronRight, Settings, Play } from 'lucide-react';
+import { Calculator, Loader2, ChevronLeft, ChevronRight, Settings, Play, AlertCircle } from 'lucide-react';
 import Stepper from './components/Stepper';
 import StepUpload from './components/StepUpload';
 import StepPreprocess from './components/StepPreprocess';
@@ -13,7 +13,7 @@ import StepOCR from './components/StepOCR';
 import StepNLP from './components/StepNLP';
 import StepGrading from './components/StepGrading';
 import ConfigModal from './components/ConfigModal';
-import { mockData } from './mockData';
+import { apiService, GradingResult, base64ToFile, OcrResponse } from './services/apiService';
 
 const DEFAULT_CONFIG = JSON.stringify({
   "exam_id": "MATH_101",
@@ -28,10 +28,16 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [maxReachedStep, setMaxReachedStep] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Image states
-  const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [processedImage, setProcessedImage] = useState<string | null>(null);
+  // Data states
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
+  const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<OcrResponse | null>(null);
+  const [structuredJson, setStructuredJson] = useState<any>(null);
+  const [gradingResult, setGradingResult] = useState<any>(null);
   
   const [isPreprocessSkipped, setIsPreprocessSkipped] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
@@ -44,77 +50,136 @@ export default function App() {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configJson, setConfigJson] = useState(DEFAULT_CONFIG);
 
-  const simulateProgress = async (text: string, duration: number) => {
-    setIsProcessing(true);
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (originalImageUrl && originalImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(originalImageUrl);
+      }
+      if (processedImageUrl && processedImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(processedImageUrl);
+      }
+    };
+  }, [originalImageUrl, processedImageUrl]);
+
+  const updateProgress = (text: string, value: number) => {
     setProcessingText(text);
-    setProgress(0);
-    const steps = 20;
-    const stepTime = duration / steps;
-    for (let i = 1; i <= steps; i++) {
-      await new Promise(r => setTimeout(r, stepTime));
-      setProgress(i * (100 / steps));
-    }
-    setIsProcessing(false);
+    setProgress(value);
   };
 
   const startProcessing = async (file: File | null, skipPreprocess: boolean, auto: boolean) => {
-    let currentImageUrl = originalImage;
+    setError(null);
+    if (!file && !originalFile) {
+      setError('Vui lòng chọn một tệp hình ảnh.');
+      return;
+    }
+
+    const currentFile = file || originalFile;
     if (file) {
-      currentImageUrl = URL.createObjectURL(file);
-      setOriginalImage(currentImageUrl);
+      setOriginalFile(file);
+      setOriginalImageUrl(URL.createObjectURL(file));
     }
     
     setIsPreprocessSkipped(skipPreprocess);
     setAutoMode(auto);
 
-    if (auto) {
+    try {
+      setIsProcessing(true);
+      
+      // Step 1: Preprocess
+      let fileToUse: File;
       if (!skipPreprocess) {
-        await simulateProgress('Đang gọi API tiền xử lý hình ảnh...', 2500);
-        // Simulate API returning base64 (using original image for now)
-        setProcessedImage(currentImageUrl);
+        updateProgress('Đang gọi API tiền xử lý hình ảnh...', 20);
+        const base64 = await apiService.cleanImage(currentFile!);
+        
+        // Convert base64 to File
+        const cleanedFile = base64ToFile(base64, 'cleaned_image.png');
+        setProcessedBlob(cleanedFile);
+        
+        const url = URL.createObjectURL(cleanedFile);
+        setProcessedImageUrl(url);
+        fileToUse = cleanedFile;
       } else {
-        setProcessedImage(currentImageUrl);
+        setProcessedBlob(currentFile);
+        const url = URL.createObjectURL(currentFile!);
+        setProcessedImageUrl(url);
+        fileToUse = currentFile!;
       }
+      
       setCurrentStep(1);
       setMaxReachedStep(1);
 
-      await simulateProgress('Đang gọi API nhận diện chữ viết (OCR)...', 3000);
-      setCurrentStep(2);
-      setMaxReachedStep(2);
-
-      await simulateProgress('Đang gọi API phân tích cấu trúc (NLP)...', 2500);
-      setCurrentStep(3);
-      setMaxReachedStep(3);
-
-      await simulateProgress('Đang gọi API chấm điểm...', 2000);
-      setCurrentStep(4);
-      setMaxReachedStep(4);
-    } else {
-      if (!skipPreprocess) {
-        await simulateProgress('Đang gọi API tiền xử lý hình ảnh...', 2500);
-        setProcessedImage(currentImageUrl);
-      } else {
-        setProcessedImage(currentImageUrl);
+      if (auto) {
+        const markdown = await runOCRStep(fileToUse);
+        const json = await runNLPStep(markdown);
+        await runGradingStep(json);
       }
-      setCurrentStep(1);
-      setMaxReachedStep(1);
+    } catch (err: any) {
+      setError(err.message || 'Có lỗi xảy ra trong quá trình xử lý.');
+      setIsProcessing(false);
+    } finally {
+      if (!auto) setIsProcessing(false);
     }
   };
 
+  const runOCRStep = async (file: File | Blob) => {
+    updateProgress('Đang gọi API nhận diện chữ viết (OCR)...', 40);
+    const result = await apiService.ocrImage(file);
+    setOcrResult(result);
+    setCurrentStep(2);
+    setMaxReachedStep(2);
+    return result.markdown_result || result.raw_result;
+  };
+
+  const runNLPStep = async (text: string) => {
+    updateProgress('Đang gọi API phân tích cấu trúc (NLP)...', 70);
+    const json = await apiService.fixAndStruct(text);
+    setStructuredJson(json);
+    setCurrentStep(3);
+    setMaxReachedStep(3);
+    return json;
+  };
+
+  const runGradingStep = async (json: any) => {
+    updateProgress('Đang gọi API chấm điểm...', 90);
+    const result = await apiService.grade(configJson, json);
+    
+    // Map Swagger result to UI expectations
+    const mappedResult = {
+      score: result.total_score,
+      maxScore: result.total_max_score,
+      steps: result.parts.map((part: any, idx: number) => ({
+        id: idx + 1,
+        content: `${part.question} ${part.part}: ${part.explanation_vi || part.explanation_en}`,
+        isCorrect: part.deduction === 0,
+        feedback: part.criteria.map((c: any) => `${c.reason} (-${c.deduction || 0}đ)`).join('\n')
+      }))
+    };
+    
+    setGradingResult(mappedResult);
+    setCurrentStep(4);
+    setMaxReachedStep(4);
+    updateProgress('Hoàn tất!', 100);
+    setIsProcessing(false);
+    return mappedResult;
+  };
+
   const processNextStep = async () => {
+    setError(null);
     const nextStep = maxReachedStep + 1;
-    if (nextStep === 2) {
-      await simulateProgress('Đang gọi API nhận diện chữ viết (OCR)...', 3000);
-      setCurrentStep(2);
-      setMaxReachedStep(2);
-    } else if (nextStep === 3) {
-      await simulateProgress('Đang gọi API phân tích cấu trúc (NLP)...', 2500);
-      setCurrentStep(3);
-      setMaxReachedStep(3);
-    } else if (nextStep === 4) {
-      await simulateProgress('Đang gọi API chấm điểm...', 2000);
-      setCurrentStep(4);
-      setMaxReachedStep(4);
+    try {
+      setIsProcessing(true);
+      if (nextStep === 2) {
+        await runOCRStep(processedBlob || originalFile!);
+      } else if (nextStep === 3) {
+        await runNLPStep(ocrResult?.markdown_result || ocrResult?.raw_result || '');
+      } else if (nextStep === 4) {
+        await runGradingStep(structuredJson);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Có lỗi xảy ra.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -158,6 +223,18 @@ export default function App() {
           onStepClick={handleStepClick} 
         />
 
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-2xl mx-auto mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 text-red-400"
+          >
+            <AlertCircle size={20} />
+            <p className="text-sm font-medium">{error}</p>
+            <button onClick={() => setError(null)} className="ml-auto text-white/40 hover:text-white">✕</button>
+          </motion.div>
+        )}
+
         {isProcessing && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
@@ -185,29 +262,29 @@ export default function App() {
         <div className="relative min-h-[500px]">
           <AnimatePresence mode="wait">
             {currentStep === 0 && (
-              <StepUpload key="step0" onStart={startProcessing} initialImage={originalImage} />
+              <StepUpload key="step0" onStart={startProcessing} initialImage={originalImageUrl} />
             )}
             
-            {currentStep === 1 && originalImage && (
-              <StepPreprocess key="step1" originalImage={originalImage} processedImage={processedImage} isSkipped={isPreprocessSkipped} />
+            {currentStep === 1 && originalImageUrl && (
+              <StepPreprocess key="step1" originalImage={originalImageUrl} processedImage={processedImageUrl} isSkipped={isPreprocessSkipped} />
             )}
             
-            {currentStep === 2 && processedImage && (
-              <StepOCR key="step2" processedImage={processedImage} rawMarkdown={mockData.rawMarkdown} />
+            {currentStep === 2 && processedImageUrl && ocrResult && (
+              <StepOCR key="step2" processedImage={processedImageUrl} ocrResult={ocrResult} />
             )}
             
             {currentStep === 3 && (
-              <StepNLP key="step3" rawMarkdown={mockData.rawMarkdown} structuredJson={mockData.structuredJson} />
+              <StepNLP key="step3" rawMarkdown={ocrResult?.markdown_result || ocrResult?.raw_result || ''} structuredJson={structuredJson} />
             )}
             
-            {currentStep === 4 && (
-              <StepGrading key="step4" gradingResult={mockData.gradingResult} />
+            {currentStep === 4 && gradingResult && (
+              <StepGrading key="step4" gradingResult={gradingResult} />
             )}
           </AnimatePresence>
         </div>
 
         {/* Navigation Controls for Reviewing */}
-        {!isProcessing && maxReachedStep > 0 && currentStep > 0 && (
+        {!isProcessing && maxReachedStep > 0 && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
