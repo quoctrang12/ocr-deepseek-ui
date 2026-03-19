@@ -30,19 +30,27 @@ export interface GradingResult {
 
 export interface OcrResponse {
   success: boolean;
-  filename: string;
   raw_result: string;
   markdown_result: string;
+  bbox_images_b64?: Array<{
+    file: number;
+    filename: string;
+    image_base64: string;
+  }>;
 }
 
 export const apiService = {
   /**
    * Step 1: Clean/Preprocess Image
-   * Returns base64 string of the cleaned image
+   * Returns an array of base64 strings of the cleaned images
    */
-  async cleanImage(file: File): Promise<string> {
+  async cleanImage(files: File | File[]): Promise<string[]> {
     const formData = new FormData();
-    formData.append('file', file);
+    const fileArray = Array.isArray(files) ? files : [files];
+    
+    fileArray.forEach(file => {
+      formData.append('files', file);
+    });
     
     const response = await fetch(`${API_URL}/api/v1/clean_image`, {
       method: 'POST',
@@ -55,18 +63,38 @@ export const apiService = {
     }
 
     const data = await response.json();
-    // Assuming the response is { "image": "base64_string" } or just the string
-    return data.image || (typeof data === 'string' ? data : JSON.stringify(data));
+    
+    // Handle new response format: { success: true, files: [{ image_base64: "..." }] }
+    if (data && data.success && Array.isArray(data.files)) {
+      return data.files.map((f: any) => f.image_base64);
+    }
+    
+    // Fallback for old response patterns
+    if (data && typeof data === 'object') {
+      if (data.img_base64) return [data.img_base64];
+      if (data.image) return [data.image];
+    }
+    
+    if (typeof data === 'string') {
+      return [data];
+    }
+
+    // If we reach here, the response format is unexpected
+    console.error("Unexpected API response for clean_image:", data);
+    throw new Error("Phản hồi từ máy chủ không đúng định dạng (thiếu dữ liệu ảnh)");
   },
 
   /**
    * Step 2: OCR Image to Markdown
    */
-  async ocrImage(file: File | Blob): Promise<OcrResponse> {
+  async ocrImage(files: File | Blob | Array<File | Blob>): Promise<OcrResponse> {
     const formData = new FormData();
-    // If it's a blob from cleanImage, we might need to give it a name
-    const fileToUpload = file instanceof File ? file : new File([file], 'processed_image.png', { type: 'image/png' });
-    formData.append('file', fileToUpload);
+    const fileArray = Array.isArray(files) ? files : [files];
+    
+    fileArray.forEach((file, idx) => {
+      const fileToUpload = file instanceof File ? file : new File([file], `processed_image_${idx + 1}.png`, { type: 'image/png' });
+      formData.append('files', fileToUpload);
+    });
     
     const response = await fetch(`${API_URL}/api/v1/ocr`, {
       method: 'POST',
@@ -156,16 +184,29 @@ export const apiService = {
  * Helper to convert base64 to File
  */
 export const base64ToFile = (base64String: string, fileName: string): File => {
+  if (!base64String) throw new Error("Base64 string is empty");
+
   // Remove data URL prefix if present
-  const base64Data = base64String.includes(',') ? base64String.split(',')[1] : base64String;
-  const byteString = atob(base64Data);
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
+  let base64Data = base64String.includes(',') ? base64String.split(',')[1] : base64String;
   
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
+  // Clean the string: remove all whitespace characters (spaces, newlines, tabs)
+  base64Data = base64Data.replace(/\s/g, '');
+
+  try {
+    const byteString = atob(base64Data);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    
+    const blob = new Blob([ab], { type: 'image/png' });
+    return new File([blob], fileName, { type: 'image/png' });
+  } catch (e) {
+    console.error("Failed to decode base64 string:", e);
+    // Log a bit of the string to help debugging
+    console.error("Base64 string preview:", base64Data.substring(0, 100) + "...");
+    throw new Error("Dữ liệu ảnh không hợp lệ hoặc không đúng định dạng Base64");
   }
-  
-  const blob = new Blob([ab], { type: 'image/png' });
-  return new File([blob], fileName, { type: 'image/png' });
 };

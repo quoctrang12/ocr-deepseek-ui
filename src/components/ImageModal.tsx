@@ -57,6 +57,7 @@ export default function ImageModal({ isOpen, onClose, imageUrl, altText = "Enlar
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             src={imageUrl}
             alt={altText}
+            referrerPolicy="no-referrer"
             className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] cursor-default border border-white/10"
             onClick={(e) => e.stopPropagation()}
           />

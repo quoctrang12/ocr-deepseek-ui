@@ -9,13 +9,26 @@ import ImageModal from './ImageModal';
 import { OcrResponse } from '../services/apiService';
 
 interface StepOCRProps {
-  processedImage: string;
+  processedImages: string[];
   ocrResult: OcrResponse;
+  isSkipped: boolean;
 }
 
-export default function StepOCR({ processedImage, ocrResult }: StepOCRProps) {
+export default function StepOCR({ processedImages, ocrResult, isSkipped }: StepOCRProps) {
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'preview' | 'raw'>('preview');
+  const [imageMode, setImageMode] = useState<'cleaned' | 'bbox'>('cleaned');
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
+
+  const bboxImages = ocrResult.bbox_images_b64?.map(img => 
+    img.image_base64.startsWith('data:') ? img.image_base64 : `data:image/png;base64,${img.image_base64}`
+  ) || [];
+
+  const hasBboxImages = bboxImages.length > 0;
+  
+  const currentImage = (imageMode === 'bbox' && hasBboxImages) 
+    ? (bboxImages[activeImageIdx] || bboxImages[0]) 
+    : processedImages[activeImageIdx];
 
   const handleDownload = (e: React.MouseEvent, url: string, filename: string) => {
     e.stopPropagation();
@@ -62,23 +75,75 @@ export default function StepOCR({ processedImage, ocrResult }: StepOCRProps) {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
             <div className="flex flex-col gap-4">
-              <h3 className="text-lg font-semibold text-white/80">Ảnh đã làm sạch</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white/80">
+                  {imageMode === 'cleaned' ? (isSkipped ? 'Ảnh gốc' : 'Ảnh đã làm sạch') : 'Vùng nhận diện (Bounding Boxes)'}
+                  {processedImages.length > 1 && ` (#${activeImageIdx + 1})`}
+                </h3>
+                <div className="flex gap-2">
+                  {hasBboxImages && (
+                    <div className="flex glass-panel p-1 rounded-lg border border-white/10">
+                      <button
+                        onClick={() => setImageMode('cleaned')}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                          imageMode === 'cleaned' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-white/50 hover:text-white'
+                        }`}
+                      >
+                        {isSkipped ? 'Gốc' : 'Làm sạch'}
+                      </button>
+                      <button
+                        onClick={() => setImageMode('bbox')}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                          imageMode === 'bbox' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-white/50 hover:text-white'
+                        }`}
+                      >
+                        Bboxes
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {processedImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {processedImages.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIdx(idx)}
+                      className={`flex-shrink-0 w-10 h-10 rounded-lg border transition-all flex items-center justify-center font-bold text-xs
+                        ${activeImageIdx === idx 
+                          ? 'bg-cyan-500 border-cyan-400 text-white shadow-lg shadow-cyan-500/20' 
+                          : 'glass-panel border-white/10 text-white/40 hover:text-white/80'}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div 
                 className="relative h-full min-h-[400px] rounded-2xl overflow-hidden glass-panel p-4 flex items-center justify-center cursor-zoom-in group"
-                onClick={() => setModalImage(processedImage)}
+                onClick={() => setModalImage(currentImage)}
               >
                 <button
-                  onClick={(e) => handleDownload(e, processedImage, 'ocr_processed_image.png')}
+                  onClick={(e) => handleDownload(e, currentImage, imageMode === 'cleaned' ? `ocr_image_${activeImageIdx + 1}.png` : `ocr_bbox_${activeImageIdx + 1}.png`)}
                   className="absolute top-3 right-3 p-2 glass-panel rounded-full text-white/70 hover:text-cyan-400 hover:bg-white/20 transition-colors z-20 opacity-0 group-hover:opacity-100"
                   title="Tải ảnh xuống"
                 >
                   <Download size={18} />
                 </button>
-                <img 
-                  src={processedImage} 
-                  alt="Processed" 
-                  className="max-w-full max-h-full object-contain filter contrast-125 brightness-110 saturate-0 transition-transform duration-500 group-hover:scale-105"
-                />
+                <AnimatePresence mode="wait">
+                  <motion.img 
+                    key={`${imageMode}-${activeImageIdx}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    src={currentImage} 
+                    referrerPolicy="no-referrer"
+                    alt={imageMode === 'cleaned' ? (isSkipped ? "Original" : "Processed") : "Bounding Boxes"} 
+                    className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105`}
+                  />
+                </AnimatePresence>
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                   <div className="glass-panel p-3 rounded-full text-white">
                     <ZoomIn size={24} />

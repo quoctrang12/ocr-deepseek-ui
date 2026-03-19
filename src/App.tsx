@@ -16,11 +16,78 @@ import ConfigModal from './components/ConfigModal';
 import { apiService, GradingResult, base64ToFile, OcrResponse } from './services/apiService';
 
 const DEFAULT_CONFIG = JSON.stringify({
-  "exam_id": "MATH_101",
   "questions": [
-    { "id": "1", "points": 2.0, "type": "multiple_choice" },
-    { "id": "2", "points": 3.0, "type": "essay" },
-    { "id": "3", "points": 5.0, "type": "essay" }
+    {
+      "question_number": "Bài 1",
+      "question_max_score": 1.5,
+      "problem": "Giải các phương trình sau: a) (1-2x)(x+5)=0; b) (x+2)/(x-2) - (x-2)/(2+x) = (x^2+16)/(x^2-4).",
+      "sub_parts": [
+        {
+          "part": "a",
+          "part_max_score": 0.75,
+          "score_rules": {
+            "use_rubric_sum_as_part_max": true
+          },
+          "problem": "Giải phương trình (1-2x)(x+5)=0.",
+          "teacher_solution_steps": [
+            "Vì (1-2x)(x+5)=0 nên 1-2x=0 hoặc x+5=0.",
+            "Từ 1-2x=0 suy ra x=1/2.",
+            "Từ x+5=0 suy ra x=-5.",
+            "Vậy nghiệm là x=1/2 hoặc x=-5."
+          ],
+          "rubric": [
+            {
+              "criterion_id": "R1",
+              "description": "Tách đúng hai phương trình thành phần 1-2x=0 và x+5=0",
+              "max_score": 0.25
+            },
+            {
+              "criterion_id": "R2",
+              "description": "Tìm đúng hai nghiệm x=1/2 và x=-5",
+              "max_score": 0.25
+            },
+            {
+              "criterion_id": "R3",
+              "description": "Kết luận đúng tập nghiệm",
+              "max_score": 0.25
+            }
+          ]
+        },
+        {
+          "part": "b",
+          "part_max_score": 0.75,
+          "score_rules": {
+            "use_rubric_sum_as_part_max": true
+          },
+          "problem": "Giải phương trình (x+2)/(x-2) - (x-2)/(2+x) = (x^2+16)/(x^2-4).",
+          "teacher_solution_steps": [
+            "Điều kiện xác định: x ≠ 2, x ≠ -2.",
+            "Quy đồng và rút gọn được (x+2)^2 - (x-2)^2 = x^2 + 16.",
+            "Khai triển và rút gọn được 8x = x^2 + 16.",
+            "Chuyển vế được x^2 - 8x + 16 = 0.",
+            "Suy ra (x-4)^2 = 0 nên x = 4.",
+            "Giá trị này thỏa điều kiện, vậy nghiệm là x = 4."
+          ],
+          "rubric": [
+            {
+              "criterion_id": "R1",
+              "description": "Nêu đúng điều kiện xác định và quy đồng/rút gọn đúng về (x+2)^2 - (x-2)^2 = x^2+16",
+              "max_score": 0.25
+            },
+            {
+              "criterion_id": "R2",
+              "description": "Biến đổi đúng đến phương trình x^2 - 8x + 16 = 0",
+              "max_score": 0.25
+            },
+            {
+              "criterion_id": "R3",
+              "description": "Tìm đúng nghiệm x = 4 và kết luận đúng",
+              "max_score": 0.25
+            }
+          ]
+        }
+      ]
+    }
   ]
 }, null, 2);
 
@@ -31,10 +98,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   
   // Data states
-  const [originalFile, setOriginalFile] = useState<File | null>(null);
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
-  const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
-  const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(null);
+  const [originalFiles, setOriginalFiles] = useState<File[]>([]);
+  const [originalImageUrls, setOriginalImageUrls] = useState<string[]>([]);
+  const [processedBlobs, setProcessedBlobs] = useState<Blob[]>([]);
+  const [processedImageUrls, setProcessedImageUrls] = useState<string[]>([]);
   const [ocrResult, setOcrResult] = useState<OcrResponse | null>(null);
   const [structuredJson, setStructuredJson] = useState<any>(null);
   const [gradingResult, setGradingResult] = useState<any>(null);
@@ -50,34 +117,45 @@ export default function App() {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configJson, setConfigJson] = useState(DEFAULT_CONFIG);
 
-  // Cleanup object URLs to prevent memory leaks
+  // Cleanup original image URLs
   useEffect(() => {
     return () => {
-      if (originalImageUrl && originalImageUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(originalImageUrl);
-      }
-      if (processedImageUrl && processedImageUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(processedImageUrl);
-      }
+      originalImageUrls.forEach(url => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
     };
-  }, [originalImageUrl, processedImageUrl]);
+  }, [originalImageUrls]);
+
+  // Cleanup processed image URLs
+  useEffect(() => {
+    return () => {
+      processedImageUrls.forEach(url => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [processedImageUrls]);
 
   const updateProgress = (text: string, value: number) => {
     setProcessingText(text);
     setProgress(value);
   };
 
-  const startProcessing = async (file: File | null, skipPreprocess: boolean, auto: boolean) => {
+  const startProcessing = async (files: File[], skipPreprocess: boolean, auto: boolean) => {
     setError(null);
-    if (!file && !originalFile) {
-      setError('Vui lòng chọn một tệp hình ảnh.');
+    if (files.length === 0 && originalFiles.length === 0) {
+      setError('Vui lòng chọn ít nhất một tệp hình ảnh.');
       return;
     }
 
-    const currentFile = file || originalFile;
-    if (file) {
-      setOriginalFile(file);
-      setOriginalImageUrl(URL.createObjectURL(file));
+    const currentFiles = files.length > 0 ? files : originalFiles;
+    if (files.length > 0) {
+      setOriginalFiles(files);
+      const urls = files.map(file => URL.createObjectURL(file));
+      setOriginalImageUrls(urls);
     }
     
     setIsPreprocessSkipped(skipPreprocess);
@@ -87,30 +165,32 @@ export default function App() {
       setIsProcessing(true);
       
       // Step 1: Preprocess
-      let fileToUse: File;
+      let filesToUse: File[];
       if (!skipPreprocess) {
         updateProgress('Đang gọi API tiền xử lý hình ảnh...', 20);
-        const base64 = await apiService.cleanImage(currentFile!);
+        const base64s = await apiService.cleanImage(currentFiles);
         
-        // Convert base64 to File
-        const cleanedFile = base64ToFile(base64, 'cleaned_image.png');
-        setProcessedBlob(cleanedFile);
+        // Convert base64s to Files
+        const cleanedFiles = base64s.map((base64, idx) => 
+          base64ToFile(base64, `cleaned_image_${idx + 1}.png`)
+        );
+        setProcessedBlobs(cleanedFiles);
         
-        const url = URL.createObjectURL(cleanedFile);
-        setProcessedImageUrl(url);
-        fileToUse = cleanedFile;
+        const urls = cleanedFiles.map(file => URL.createObjectURL(file));
+        setProcessedImageUrls(urls);
+        filesToUse = cleanedFiles;
       } else {
-        setProcessedBlob(currentFile);
-        const url = URL.createObjectURL(currentFile!);
-        setProcessedImageUrl(url);
-        fileToUse = currentFile!;
+        setProcessedBlobs(currentFiles);
+        const urls = currentFiles.map(file => URL.createObjectURL(file));
+        setProcessedImageUrls(urls);
+        filesToUse = currentFiles;
       }
       
       setCurrentStep(1);
       setMaxReachedStep(1);
 
       if (auto) {
-        const markdown = await runOCRStep(fileToUse);
+        const markdown = await runOCRStep(filesToUse);
         const json = await runNLPStep(markdown);
         await runGradingStep(json);
       }
@@ -122,9 +202,9 @@ export default function App() {
     }
   };
 
-  const runOCRStep = async (file: File | Blob) => {
+  const runOCRStep = async (files: Array<File | Blob>) => {
     updateProgress('Đang gọi API nhận diện chữ viết (OCR)...', 40);
-    const result = await apiService.ocrImage(file);
+    const result = await apiService.ocrImage(files);
     setOcrResult(result);
     setCurrentStep(2);
     setMaxReachedStep(2);
@@ -148,12 +228,23 @@ export default function App() {
     const mappedResult = {
       score: result.total_score,
       maxScore: result.total_max_score,
-      steps: result.parts.map((part: any, idx: number) => ({
-        id: idx + 1,
-        content: `${part.question} ${part.part}: ${part.explanation_vi || part.explanation_en}`,
-        isCorrect: part.deduction === 0,
-        feedback: part.criteria.map((c: any) => `${c.reason} (-${c.deduction || 0}đ)`).join('\n')
-      }))
+      steps: result.parts.map((part: any, idx: number) => {
+        const partDeduction = part.deduction || 0;
+        return {
+          id: idx + 1,
+          content: `**${part.question} ${part.part}**: ${part.explanation_vi || part.explanation_en}`,
+          isCorrect: partDeduction === 0,
+          feedback: part.criteria
+            .map((c: any) => {
+              const criterionDeduction = (c.max_score || 0) - (c.awarded_score || 0);
+              if (criterionDeduction > 0) {
+                return `• ${c.reason} (Trừ ${criterionDeduction}đ)`;
+              }
+              return `• ${c.reason}`;
+            })
+            .join('\n\n')
+        };
+      })
     };
     
     setGradingResult(mappedResult);
@@ -170,7 +261,7 @@ export default function App() {
     try {
       setIsProcessing(true);
       if (nextStep === 2) {
-        await runOCRStep(processedBlob || originalFile!);
+        await runOCRStep(processedBlobs.length > 0 ? processedBlobs : originalFiles);
       } else if (nextStep === 3) {
         await runNLPStep(ocrResult?.markdown_result || ocrResult?.raw_result || '');
       } else if (nextStep === 4) {
@@ -262,15 +353,20 @@ export default function App() {
         <div className="relative min-h-[500px]">
           <AnimatePresence mode="wait">
             {currentStep === 0 && (
-              <StepUpload key="step0" onStart={startProcessing} initialImage={originalImageUrl} />
+              <StepUpload key="step0" onStart={startProcessing} initialImages={originalImageUrls} />
             )}
             
-            {currentStep === 1 && originalImageUrl && (
-              <StepPreprocess key="step1" originalImage={originalImageUrl} processedImage={processedImageUrl} isSkipped={isPreprocessSkipped} />
+            {currentStep === 1 && originalImageUrls.length > 0 && (
+              <StepPreprocess key="step1" originalImages={originalImageUrls} processedImages={processedImageUrls} isSkipped={isPreprocessSkipped} />
             )}
             
-            {currentStep === 2 && processedImageUrl && ocrResult && (
-              <StepOCR key="step2" processedImage={processedImageUrl} ocrResult={ocrResult} />
+            {currentStep === 2 && processedImageUrls.length > 0 && ocrResult && (
+              <StepOCR 
+                key="step2" 
+                processedImages={processedImageUrls} 
+                ocrResult={ocrResult} 
+                isSkipped={isPreprocessSkipped}
+              />
             )}
             
             {currentStep === 3 && (

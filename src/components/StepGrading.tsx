@@ -89,18 +89,27 @@ export default function StepGrading({ gradingResult }: StepGradingProps) {
                   </div>
                 </div>
 
-                {/* AI Feedback Block (if incorrect) */}
-                {!step.isCorrect && step.feedback && (
+                {/* AI Feedback Block */}
+                {step.feedback && (
                   <motion.div 
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-3 ml-12 p-4 glass-panel bg-amber-500/10 border border-amber-500/30 rounded-2xl relative overflow-hidden"
+                    className={`mt-3 ml-12 p-4 glass-panel border rounded-2xl relative overflow-hidden
+                      ${step.isCorrect 
+                        ? 'bg-emerald-500/10 border-emerald-500/30' 
+                        : 'bg-amber-500/10 border-amber-500/30'}`}
                   >
-                    <div className="absolute top-0 left-0 w-1 h-full bg-amber-400"></div>
+                    <div className={`absolute top-0 left-0 w-1 h-full ${step.isCorrect ? 'bg-emerald-400' : 'bg-amber-400'}`}></div>
                     <div className="flex items-start gap-3">
-                      <AlertCircle className="text-amber-400 flex-shrink-0 mt-0.5" size={20} />
+                      {step.isCorrect ? (
+                        <CheckCircle2 className="text-emerald-400 flex-shrink-0 mt-0.5" size={20} />
+                      ) : (
+                        <AlertCircle className="text-amber-400 flex-shrink-0 mt-0.5" size={20} />
+                      )}
                       <div>
-                        <h4 className="text-sm font-bold text-amber-400 mb-1">AI Nhận xét</h4>
+                        <h4 className={`text-sm font-bold mb-1 ${step.isCorrect ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          AI Nhận xét
+                        </h4>
                         <div className="text-white/80 text-sm leading-relaxed">
                           <MathRenderer content={step.feedback} />
                         </div>
